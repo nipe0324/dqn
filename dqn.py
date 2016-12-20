@@ -16,14 +16,14 @@ KERAS_BACKEND = 'tensorflow'
 ENV_NAME = 'Breakout-v0'  # Environment name
 FRAME_WIDTH = 84  # Resized frame width
 FRAME_HEIGHT = 84  # Resized frame height
-NUM_EPISODES = 12000  # Number of episodes the agent plays
+NUM_EPISODES = 20000  # Number of episodes the agent plays
 STATE_LENGTH = 4  # Number of most recent frames to produce the input to the network
 GAMMA = 0.99  # Discount factor
 EXPLORATION_STEPS = 1000000  # Number of steps over which the initial value of epsilon is linearly annealed to its final value
 INITIAL_EPSILON = 1.0  # Initial value of epsilon in epsilon-greedy
 FINAL_EPSILON = 0.1  # Final value of epsilon in epsilon-greedy
 INITIAL_REPLAY_SIZE = 20000  # Number of steps to populate the replay memory before training starts
-NUM_REPLAY_MEMORY = 400000  # Number of replay memory the agent uses for training
+NUM_REPLAY_MEMORY = 1000000  # Number of replay memory the agent uses for training
 BATCH_SIZE = 32  # Mini batch size
 TARGET_UPDATE_INTERVAL = 10000  # The frequency with which the target network is updated
 ACTION_INTERVAL = 4  # The agent sees only every 4th input
@@ -91,14 +91,14 @@ class Agent():
 
     def build_network(self):
         model = Sequential()
-        model.add(Convolution2D(32, 8, 8, subsample=(4, 4), activation='relu', input_shape=(STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT)))
+        model.add(Convolution2D(32, 8, 8, subsample=(4, 4), activation='relu', input_shape=(FRAME_WIDTH, FRAME_HEIGHT, STATE_LENGTH)))
         model.add(Convolution2D(64, 4, 4, subsample=(2, 2), activation='relu'))
         model.add(Convolution2D(64, 3, 3, subsample=(1, 1), activation='relu'))
         model.add(Flatten())
         model.add(Dense(512, activation='relu'))
         model.add(Dense(self.num_actions))
 
-        s = tf.placeholder(tf.float32, [None, STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT])
+        s = tf.placeholder(tf.float32, [None, FRAME_WIDTH, FRAME_HEIGHT, STATE_LENGTH])
         q_values = model(s)
 
         return s, q_values, model
@@ -126,7 +126,7 @@ class Agent():
         processed_observation = np.maximum(observation, last_observation)
         processed_observation = np.uint8(resize(rgb2gray(processed_observation), (FRAME_WIDTH, FRAME_HEIGHT)) * 255)
         state = [processed_observation for _ in range(STATE_LENGTH)]
-        return np.stack(state, axis=0)
+        return np.stack(state, axis=2)
 
     def get_action(self, state):
         action = self.repeated_action
@@ -145,7 +145,7 @@ class Agent():
         return action
 
     def run(self, state, action, reward, terminal, observation):
-        next_state = np.append(state[1:, :, :], observation, axis=0)
+        next_state = np.append(state[:, :, 1:], observation, axis=2)
 
         # Clip all positive rewards at 1 and all negative rewards at -1, leaving 0 rewards unchanged
         reward = np.sign(reward)
@@ -279,7 +279,7 @@ class Agent():
 def preprocess(observation, last_observation):
     processed_observation = np.maximum(observation, last_observation)
     processed_observation = np.uint8(resize(rgb2gray(processed_observation), (FRAME_WIDTH, FRAME_HEIGHT)) * 255)
-    return np.reshape(processed_observation, (1, FRAME_WIDTH, FRAME_HEIGHT))
+    return np.reshape(processed_observation, (FRAME_WIDTH, FRAME_HEIGHT, 1))
 
 
 def main():
